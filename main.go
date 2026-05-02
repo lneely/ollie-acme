@@ -2,7 +2,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,27 +72,15 @@ func (sl *sessionList) refresh() {
 
 	sl.mu.Lock()
 	sl.allSIDs = nil
-	var buf strings.Builder
 	for _, l := range lines {
-		s := strings.TrimSpace(l)
-		if s == "" {
-			continue
+		if s := strings.TrimSpace(l); s != "" {
+			id, _, _ := strings.Cut(s, "\t")
+			sl.allSIDs = append(sl.allSIDs, id)
 		}
-		fields := strings.Split(s, "\t")
-		id := fields[0]
-		sl.allSIDs = append(sl.allSIDs, id)
-		parts := strings.Split(id, "__")
-		indent := strings.Repeat("  ", len(parts)-1)
-		leaf := parts[len(parts)-1]
-		cwd := ""
-		if len(fields) > 2 {
-			cwd = "\t" + fields[2]
-		}
-		fmt.Fprintf(&buf, "%s%s%s\n", indent, leaf, cwd)
 	}
 	sl.mu.Unlock()
 
-	sl.win.Write("body", []byte(buf.String()))
+	sl.win.Write("body", []byte(raw+"\n"))
 	sl.win.Ctl("clean")
 }
 
