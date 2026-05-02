@@ -75,7 +75,8 @@ func (sl *sessionList) refresh() {
 	sl.allSIDs = nil
 	for _, l := range lines {
 		if s := strings.TrimSpace(l); s != "" {
-			sl.allSIDs = append(sl.allSIDs, s)
+			id, _, _ := strings.Cut(s, "\t")
+			sl.allSIDs = append(sl.allSIDs, id)
 		}
 	}
 
