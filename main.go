@@ -35,7 +35,6 @@ func main() {
 
 type sessionList struct {
 	win       *acme.Win
-	collapsed map[string]bool
 	allSIDs   []string
 	mu        sync.Mutex
 }
@@ -46,7 +45,7 @@ func newSessionList() error {
 		return err
 	}
 	w.Name("ollie/sessions")
-	sl := &sessionList{win: w, collapsed: make(map[string]bool)}
+	sl := &sessionList{win: w}
 	sl.refresh()
 	w.Ctl("cleartag")
 	w.Write("tag", []byte(" New Kill Refresh"))
@@ -83,34 +82,9 @@ func (sl *sessionList) refresh() {
 	var buf strings.Builder
 	for _, sid := range sl.allSIDs {
 		parts := strings.Split(sid, "__")
-		hidden := false
-		for i := 1; i < len(parts); i++ {
-			if sl.collapsed[strings.Join(parts[:i], "__")] {
-				hidden = true
-				break
-			}
-		}
-		if hidden {
-			continue
-		}
 		indent := strings.Repeat("  ", len(parts)-1)
 		leaf := parts[len(parts)-1]
-		hasChildren := false
-		for _, other := range sl.allSIDs {
-			if strings.HasPrefix(other, sid+"__") {
-				hasChildren = true
-				break
-			}
-		}
-		marker := ""
-		if hasChildren {
-			if sl.collapsed[sid] {
-				marker = "▸ "
-			} else {
-				marker = "▾ "
-			}
-		}
-		fmt.Fprintf(&buf, "%s%s%s\n", indent, marker, leaf)
+		fmt.Fprintf(&buf, "%s%s\n", indent, leaf)
 	}
 	sl.mu.Unlock()
 
@@ -119,9 +93,6 @@ func (sl *sessionList) refresh() {
 }
 
 func (sl *sessionList) resolveFullSID(text string) string {
-	text = strings.TrimLeft(text, " \t")
-	text = strings.TrimPrefix(text, "▸ ")
-	text = strings.TrimPrefix(text, "▾ ")
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ""
@@ -166,20 +137,7 @@ func (sl *sessionList) eventLoop() {
 				sl.win.WriteEvent(e)
 			}
 		case 'l', 'L':
-			text := strings.TrimSpace(string(e.Text))
-			if text == "" {
-				sl.win.WriteEvent(e)
-				continue
-			}
-			sid := sl.resolveFullSID(text)
-			if sid == "" {
-				sl.win.WriteEvent(e)
-				continue
-			}
-			sl.mu.Lock()
-			sl.collapsed[sid] = !sl.collapsed[sid]
-			sl.mu.Unlock()
-			sl.refresh()
+			sl.win.WriteEvent(e)
 		}
 	}
 	os.Exit(0)
