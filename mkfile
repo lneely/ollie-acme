@@ -1,9 +1,7 @@
 BIN=$HOME/bin
 TARG=$BIN/Ollie
 
-all:V: $TARG
-
-$TARG:
+all:V:
 	mkdir -p $BIN
 	go build -o $TARG .
 
