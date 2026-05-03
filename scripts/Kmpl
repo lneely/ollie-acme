@@ -24,7 +24,7 @@ printf '#%s,$' "$q1" | 9p write acme/$winid/addr
 suffix=$(9p read acme/$winid/data)
 
 # Fetch completion
-result=$(printf '%s' "$prefix" | u/complete -file "$filename" -suffix "$suffix" "$@")
+result=$(printf '%s' "$prefix" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" "$@")
 
 # Insert at cursor
 echo "addr=dot" | 9p write acme/$winid/ctl
