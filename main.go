@@ -162,7 +162,17 @@ func openChat(sid string) {
 		log.Printf("open chat %s: %v", sid, err)
 		return
 	}
-	w.Name("%s", "ollie/sessions/"+sid)
+	winName := "ollie/sessions/" + sid
+	if data, err := os.ReadFile(filepath.Join(ollie, "s", "idx")); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			fields := strings.Split(line, "\t")
+			if len(fields) >= 3 && fields[0] == sid {
+				winName = fields[2] + "/+Ollie"
+				break
+			}
+		}
+	}
+	w.Name("%s", winName)
 	w.Ctl("cleartag")
 	w.Fprintf("tag", " Prompt Stop Ctl")
 
