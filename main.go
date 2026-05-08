@@ -213,7 +213,7 @@ func (cw *chatWin) tail() {
 			if os.IsNotExist(err) {
 				return
 			}
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 		size := int(fi.Size())
@@ -236,7 +236,7 @@ func (cw *chatWin) tail() {
 				}
 			}
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
