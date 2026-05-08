@@ -203,38 +203,27 @@ func (cw *chatWin) eventLoop() {
 	}
 }
 
-// tail polls the chat file and appends new content to the window.
+// tail reads chatwait in a loop to stream new content to the window.
 func (cw *chatWin) tail() {
-	chatPath := filepath.Join(ollie, "s", cw.sid, "chat")
-	swPath := filepath.Join(ollie, "s", cw.sid, "statewait")
+	cwPath := filepath.Join(ollie, "s", cw.sid, "chatwait")
 
 	for {
-		// statewait blocks until a state transition.
-		_, err := os.ReadFile(swPath)
+		data, err := os.ReadFile(cwPath)
 		if err != nil {
-			// Session gone — stop tailing.
 			if os.IsNotExist(err) {
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
-		cw.flush(chatPath)
-	}
-}
-
-func (cw *chatWin) flush(chatPath string) {
-	data, err := os.ReadFile(chatPath)
-	if err != nil {
-		return
-	}
-	cw.mu.Lock()
-	defer cw.mu.Unlock()
-	if len(data) > cw.offset {
-		cw.win.Addr("$")
-		cw.win.Write("data", data[cw.offset:])
-		cw.offset = len(data)
-		cw.win.Ctl("clean")
+		if len(data) > 0 {
+			cw.mu.Lock()
+			cw.win.Addr("$")
+			cw.win.Write("data", data)
+			cw.offset += len(data)
+			cw.win.Ctl("clean")
+			cw.mu.Unlock()
+		}
 	}
 }
 
