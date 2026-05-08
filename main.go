@@ -203,27 +203,40 @@ func (cw *chatWin) eventLoop() {
 	}
 }
 
-// tail reads chatwait in a loop to stream new content to the window.
+// tail polls the chat file for new content and streams it to the window.
 func (cw *chatWin) tail() {
-	cwPath := filepath.Join(ollie, "s", cw.sid, "chatwait")
+	chatPath := filepath.Join(ollie, "s", cw.sid, "chat")
 
 	for {
-		data, err := os.ReadFile(cwPath)
+		fi, err := os.Stat(chatPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
-		if len(data) > 0 {
-			cw.mu.Lock()
-			cw.win.Addr("$")
-			cw.win.Write("data", data)
-			cw.offset += len(data)
-			cw.win.Ctl("clean")
-			cw.mu.Unlock()
+		size := int(fi.Size())
+		cw.mu.Lock()
+		off := cw.offset
+		cw.mu.Unlock()
+		if size > off {
+			f, err := os.Open(chatPath)
+			if err == nil {
+				buf := make([]byte, size-off)
+				n, _ := f.ReadAt(buf, int64(off))
+				f.Close()
+				if n > 0 {
+					cw.mu.Lock()
+					cw.win.Addr("$")
+					cw.win.Write("data", buf[:n])
+					cw.offset += n
+					cw.win.Ctl("clean")
+					cw.mu.Unlock()
+				}
+			}
 		}
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
