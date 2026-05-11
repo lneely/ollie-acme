@@ -23,8 +23,36 @@ prefix=$(9p read acme/$winid/data)
 printf '#%s,$' "$q1" | 9p write acme/$winid/addr
 suffix=$(9p read acme/$winid/data)
 
+# Compute cursor line/col for LSP calls
+line=$(printf '%s' "$prefix" | wc -l)
+[ "$line" -eq 0 ] && line=1
+col=$(printf '%s' "$prefix" | tail -1 | wc -m)
+
+# Gather LSP context in parallel
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+python3 $OLLIE/t/lsp_completion "$filename" "$line" "$col" > "$tmpdir/completions" 2>/dev/null &
+python3 $OLLIE/t/lsp_symbols "$filename" > "$tmpdir/symbols" 2>/dev/null &
+python3 $OLLIE/t/lsp_hover "$filename" "$line" "$col" > "$tmpdir/hover" 2>/dev/null &
+wait
+
+context=""
+[ -s "$tmpdir/completions" ] && context="${context}<completions>
+$(cat "$tmpdir/completions")
+</completions>
+"
+[ -s "$tmpdir/symbols" ] && context="${context}<symbols>
+$(cat "$tmpdir/symbols")
+</symbols>
+"
+[ -s "$tmpdir/hover" ] && context="${context}<hover>
+$(cat "$tmpdir/hover")
+</hover>
+"
+
 # Fetch completion
-result=$(printf '%s' "$prefix" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" "$@")
+result=$(printf '%s' "$prefix" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" -context "$context" "$@")
 
 # Insert at cursor
 echo "addr=dot" | 9p write acme/$winid/ctl
