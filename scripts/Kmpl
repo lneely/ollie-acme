@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kmpl: acme glue for u/complete. Triggers completion and inserts at cursor.
+# Kmpl: acme glue for u/complete. Triggers completion and prints result to stdout.
 set -euo pipefail
 
 cmd=${0##*/}
@@ -7,21 +7,18 @@ die() { printf '%s: %s\n' "$cmd" "$*" >&2; exit 1; }
 
 [ -z "${winid:-}" ] || [ "$winid" = "0" ] && die "must be run from an acme window"
 
-# Get filename for language context
-filename=$(9p read acme/$winid/ctl | awk 'NR==1{print $NF}')
+# Get filename from tag
+filename=$(9p read acme/$winid/tag | awk '{print $1; exit}')
 
-# Sync addr to current dot, read rune offsets
-echo "addr=dot" | 9p write acme/$winid/ctl
-addr=$(9p read acme/$winid/addr)
-q0=$(printf '%s' "$addr" | cut -d, -f1 | tr -d '#[:space:]')
-q1=$(printf '%s' "$addr" | cut -d, -f2 | tr -d '#[:space:]')
+# Read dot position (char offsets)
+addr=$(printf 'addr=dot' | 9p write acme/$winid/ctl | 9p read acme/$winid/addr)
+read -r q0 q1 <<< "$addr"
+[ -z "$q1" ] && q1=$q0
 
-# Read prefix (before dot) and suffix (from dot onward)
-printf '#0,#%s' "$q0" | 9p write acme/$winid/addr
-prefix=$(9p read acme/$winid/data)
-
-printf '#%s,$' "$q1" | 9p write acme/$winid/addr
-suffix=$(9p read acme/$winid/data)
+# prefix = BOF to q0, suffix = q1 to EOF, selection = rdsel
+prefix=$(printf '#0,#%s' "$q0" | 9p write acme/$winid/addr | 9p read acme/$winid/data)
+suffix=$(printf '#%s,$' "$q1" | 9p write acme/$winid/addr | 9p read acme/$winid/data)
+sel=$(9p read acme/$winid/rdsel 2>/dev/null || true)
 
 # Compute cursor line/col for LSP calls
 line=$(printf '%s' "$prefix" | wc -l)
@@ -51,10 +48,5 @@ $(cat "$tmpdir/hover")
 </hover>
 "
 
-# Fetch completion
-result=$(printf '%s' "$prefix" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" -context "$context" "$@")
-
-# Insert at cursor
-echo "addr=dot" | 9p write acme/$winid/ctl
-#printf '%s' "$result" | 9p write acme/$winid/data
-printf '%s' "$result"
+# Debug: uncomment to verify inputs
+#printf '=== PREFIX ===\n%s\n=== SELECTION ===\n%s\n=== SUFFIX ===\n%s\n' "$prefix" "$sel" "$suffix"
