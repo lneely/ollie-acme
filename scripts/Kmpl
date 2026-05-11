@@ -60,13 +60,17 @@ if [ -s "$tmpdir/hover_cur" ]; then
         sort -u -o "$tmpdir/seen_types" "$tmpdir/seen_types"
         > "$tmpdir/hover_cur"
         while IFS= read -r etype; do
-            defn=$(grep -rn "\b${etype}\b" "$modroot/" --include='*.go' --include='*.php' --include='*.c' --include='*.h' --include='*.cc' --include='*.cpp' 2>/dev/null | grep -m1 "$etype" || true)
+            # Find type reference in current file, then jump to definition
+            ref=$(grep -n "\b${etype}\b" "$filename" 2>/dev/null | head -1 || true)
+            [ -z "$ref" ] && continue
+            rline=${ref%%:*}
+            rcol=$(sed -n "${rline}p" "$filename" 2>/dev/null | grep -bo "\b${etype}\b" | head -1 | cut -d: -f1 || echo 0)
+            rcol=$((rcol + 1))
+            defn=$(python3 $OLLIE/t/lsp_definition "$filename" "$rline" "$rcol" 2>/dev/null | head -1 || true)
             [ -z "$defn" ] && continue
             dfile=${defn%%:*}
-            dline=${defn#*:}; dline=${dline%%:*}
-            # Get column of type name for accurate hover
-            dcol=$(sed -n "${dline}p" "$dfile" 2>/dev/null | grep -bo "\b${etype}\b" | head -1 | cut -d: -f1 || echo 0)
-            dcol=$((dcol + 1))
+            dline=$(echo "$defn" | cut -d: -f2)
+            dcol=$(echo "$defn" | cut -d: -f3)
             result=$(python3 $OLLIE/t/lsp_hover "$dfile" "$dline" "$dcol" 2>/dev/null || true)
             [ -n "$result" ] && [ "$result" != "(no hover info)" ] && { printf '%s\n' "$result" | tee -a "$tmpdir/hover_embedded" >> "$tmpdir/hover_cur"; continue; }
             # Fallback: read raw source block
