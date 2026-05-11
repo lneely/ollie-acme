@@ -48,5 +48,7 @@ $(cat "$tmpdir/hover")
 </hover>
 "
 
-# Debug: uncomment to verify inputs
-#printf '=== PREFIX ===\n%s\n=== SELECTION ===\n%s\n=== SUFFIX ===\n%s\n' "$prefix" "$sel" "$suffix"
+# Send prefix+selection as prefix context; selection is the focal point
+result=$(printf '%s%s' "$prefix" "$sel" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" -context "$context" "$@")
+
+printf '%s' "$result"
