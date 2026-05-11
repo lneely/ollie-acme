@@ -34,6 +34,41 @@ python3 $OLLIE/t/lsp_symbols "$filename" > "$tmpdir/symbols" 2>/dev/null &
 python3 $OLLIE/t/lsp_hover "$filename" "$line" "$col" > "$tmpdir/hover" 2>/dev/null &
 wait
 
+# Walk up to workspace root (parent of .git)
+modroot=$(dirname "$filename")
+while [ "$modroot" != "/" ]; do
+    [ -e "$modroot/.git" ] && { modroot=$(dirname "$modroot"); break; }
+    modroot=$(dirname "$modroot")
+done
+[ "$modroot" = "/" ] && modroot=$(dirname "$filename")
+
+# Resolve referenced types from hover + selection (iterative, up to 3 levels deep)
+{
+    [ -s "$tmpdir/hover" ] && cat "$tmpdir/hover"
+    printf '%s\n' "$sel"
+} > "$tmpdir/hover_cur"
+if [ -s "$tmpdir/hover_cur" ]; then
+    touch "$tmpdir/hover_embedded" "$tmpdir/seen_types"
+    for _depth in 1 2 3; do
+        sed -n 's/.*\[\]\*\?\([A-Z][A-Za-z0-9_]*\).*/\1/p; s/.*\*\([A-Z][A-Za-z0-9_]*\).*/\1/p; s/.*[a-z]\+\.\([A-Z][A-Za-z0-9_]*\).*/\1/p' "$tmpdir/hover_cur" \
+            | grep -vE '^(MessageState|UnknownFields|SizeCache)$' \
+            | sort -u > "$tmpdir/new_types" || true
+        # Remove already-seen types
+        comm -23 "$tmpdir/new_types" "$tmpdir/seen_types" > "$tmpdir/todo_types" || true
+        [ -s "$tmpdir/todo_types" ] || break
+        cat "$tmpdir/todo_types" >> "$tmpdir/seen_types"
+        sort -u -o "$tmpdir/seen_types" "$tmpdir/seen_types"
+        > "$tmpdir/hover_cur"
+        while IFS= read -r etype; do
+            defn=$(grep -rn "type ${etype} struct" "$modroot/" --include='*.go' 2>/dev/null | head -1 || true)
+            [ -z "$defn" ] && continue
+            dfile=${defn%%:*}
+            dline=${defn#*:}; dline=${dline%%:*}
+            python3 $OLLIE/t/lsp_hover "$dfile" "$dline" 1 2>/dev/null | tee -a "$tmpdir/hover_embedded" >> "$tmpdir/hover_cur" || true
+        done < "$tmpdir/todo_types"
+    done
+fi
+
 context=""
 [ -s "$tmpdir/completions" ] && context="${context}<completions>
 $(cat "$tmpdir/completions")
@@ -47,8 +82,12 @@ $(cat "$tmpdir/symbols")
 $(cat "$tmpdir/hover")
 </hover>
 "
+[ -s "$tmpdir/hover_embedded" ] && context="${context}<types>
+$(cat "$tmpdir/hover_embedded")
+</types>
+"
 
 # Send prefix+selection as prefix context; selection is the focal point
-result=$(printf '%s%s' "$prefix" "$sel" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" -context "$context" "$@")
+result=$(printf '%s%s' "$prefix" "$sel" | $OLLIE/u/complete -file "$filename" -suffix "$suffix" -context "$context" -cwd "$modroot" "$@")
 
 printf '%s' "$result"
