@@ -94,7 +94,7 @@ $(cat "$tmpdir/hover")
 </hover>
 "
 [ -s "$tmpdir/diagnostics" ] && context="${context}<diagnostics>
-$(cat "$tmpdir/diagnostics")
+$(head -20 "$tmpdir/diagnostics")
 </diagnostics>
 "
 [ -s "$tmpdir/hover_embedded" ] && context="${context}<types>
