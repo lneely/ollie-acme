@@ -64,7 +64,8 @@ if [ -s "$tmpdir/hover_cur" ]; then
             [ -z "$defn" ] && continue
             dfile=${defn%%:*}
             dline=${defn#*:}; dline=${dline%%:*}
-            python3 $OLLIE/t/lsp_hover "$dfile" "$dline" 1 2>/dev/null | tee -a "$tmpdir/hover_embedded" >> "$tmpdir/hover_cur" || true
+            # Read struct definition from file (until closing brace)
+            sed -n "${dline},/^}/p" "$dfile" 2>/dev/null | tee -a "$tmpdir/hover_embedded" >> "$tmpdir/hover_cur" || true
         done < "$tmpdir/todo_types"
     done
 fi
