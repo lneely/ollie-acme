@@ -28,4 +28,5 @@ result=$(printf '%s' "$prefix" | $OLLIE/u/complete -file "$filename" -suffix "$s
 
 # Insert at cursor
 echo "addr=dot" | 9p write acme/$winid/ctl
-printf '%s' "$result" | 9p write acme/$winid/data
+#printf '%s' "$result" | 9p write acme/$winid/data
+printf '%s' "$result"
