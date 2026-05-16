@@ -29,10 +29,10 @@ col=$(printf '%s' "$prefix" | tail -1 | wc -m)
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
-python3 $OLLIE/t/lsp_completion "$filename" "$line" "$col" > "$tmpdir/completions" 2>/dev/null &
-python3 $OLLIE/t/lsp_symbols "$filename" > "$tmpdir/symbols" 2>/dev/null &
-python3 $OLLIE/t/lsp_hover "$filename" "$line" "$col" > "$tmpdir/hover" 2>/dev/null &
-python3 $OLLIE/t/lsp_diagnostics "$filename" > "$tmpdir/diagnostics" 2>/dev/null &
+python3 $OLLIE_TOOLS_PATH/lsp_completion "$filename" "$line" "$col" > "$tmpdir/completions" 2>/dev/null &
+python3 $OLLIE_TOOLS_PATH/lsp_symbols "$filename" > "$tmpdir/symbols" 2>/dev/null &
+python3 $OLLIE_TOOLS_PATH/lsp_hover "$filename" "$line" "$col" > "$tmpdir/hover" 2>/dev/null &
+python3 $OLLIE_TOOLS_PATH/lsp_diagnostics "$filename" > "$tmpdir/diagnostics" 2>/dev/null &
 wait
 
 # Walk up to workspace root (parent of .git)
@@ -67,7 +67,7 @@ if [ -s "$tmpdir/hover_cur" ]; then
             rline=${ref%%:*}
             rcol=$(sed -n "${rline}p" "$filename" 2>/dev/null | grep -bo "\b${etype}\b" | head -1 | cut -d: -f1 || echo 0)
             rcol=$((rcol + 1))
-            defn=$(python3 $OLLIE/t/lsp_definition "$filename" "$rline" "$rcol" 2>/dev/null | head -1 || true)
+            defn=$(python3 $OLLIE_TOOLS_PATH/lsp_definition "$filename" "$rline" "$rcol" 2>/dev/null | head -1 || true)
             [ -z "$defn" ] && continue
             dfile=${defn%%:*}
             dline=$(echo "$defn" | cut -d: -f2)
